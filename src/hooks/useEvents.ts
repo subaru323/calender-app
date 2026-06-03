@@ -1,0 +1,113 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+} from "firebase/firestore";
+import type { EventDraft, EventItem } from "../types";
+import { db, firebaseEnabled } from "../lib/firebase";
+import { stripUndefined } from "../lib/utils";
+import { createSampleEvents } from "../lib/sampleData";
+import { useAuth } from "../context/AuthContext";
+
+export interface EventsStore {
+  events: EventItem[];
+  /** データの出どころ。UI のバッジ表示に使う。 */
+  source: "firestore" | "memory";
+  addEvent: (draft: EventDraft) => Promise<void>;
+  updateEvent: (id: string, patch: Partial<EventDraft>) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
+  toggleDone: (id: string) => Promise<void>;
+}
+
+/**
+ * 予定の CRUD。
+ * - ログイン済み（Firebase 有効）: Firestore `users/{uid}/events`
+ * - 未ログイン: メモリ内 state（サンプル付き）
+ * localStorage は使わない（絶対ルール5）。
+ */
+export function useEvents(): EventsStore {
+  const { user } = useAuth();
+  const useFirestore = firebaseEnabled && !!user && !!db;
+
+  const [events, setEvents] = useState<EventItem[]>(() =>
+    firebaseEnabled ? [] : createSampleEvents(),
+  );
+
+  useEffect(() => {
+    if (!useFirestore) return;
+    const ref = collection(db!, "users", user!.uid, "events");
+    const unsub = onSnapshot(query(ref, orderBy("createdAt", "desc")), (snap) => {
+      setEvents(
+        snap.docs.map((d) => ({ ...(d.data() as Omit<EventItem, "id">), id: d.id })),
+      );
+    });
+    return unsub;
+  }, [useFirestore, user?.uid]);
+
+  const addEvent = useCallback(
+    async (draft: EventDraft) => {
+      const createdAt = Date.now();
+      if (useFirestore) {
+        await addDoc(
+          collection(db!, "users", user!.uid, "events"),
+          stripUndefined({ ...draft, createdAt }),
+        );
+      } else {
+        setEvents((prev) => [
+          { ...draft, id: crypto.randomUUID(), createdAt },
+          ...prev,
+        ]);
+      }
+    },
+    [useFirestore, user?.uid],
+  );
+
+  const updateEvent = useCallback(
+    async (id: string, patch: Partial<EventDraft>) => {
+      if (useFirestore) {
+        await updateDoc(
+          doc(db!, "users", user!.uid, "events", id),
+          stripUndefined(patch),
+        );
+      } else {
+        setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+      }
+    },
+    [useFirestore, user?.uid],
+  );
+
+  const deleteEvent = useCallback(
+    async (id: string) => {
+      if (useFirestore) {
+        await deleteDoc(doc(db!, "users", user!.uid, "events", id));
+      } else {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+      }
+    },
+    [useFirestore, user?.uid],
+  );
+
+  const toggleDone = useCallback(
+    async (id: string) => {
+      const target = events.find((e) => e.id === id);
+      if (!target) return;
+      await updateEvent(id, { done: !target.done });
+    },
+    [events, updateEvent],
+  );
+
+  return {
+    events,
+    source: useFirestore ? "firestore" : "memory",
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    toggleDone,
+  };
+}

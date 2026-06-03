@@ -1,0 +1,19 @@
+{
+  "name": "MOTIO",
+  "short_name": "MOTIO",
+  "description": "締切の優先順位と明日の持ち物を自動で段取りする、若者専用カレンダー。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f4f8",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
