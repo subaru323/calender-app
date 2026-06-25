@@ -2,6 +2,7 @@ import type { EventItem } from "../../types";
 import { deadlineTasks, sortByPriority } from "../../lib/priority";
 import { EventRow } from "../shared/EventRow";
 import { EmptyState } from "../shared/EmptyState";
+import { WeeklyLoad } from "./WeeklyLoad";
 
 export function DeadlineList({
   events,
@@ -18,6 +19,9 @@ export function DeadlineList({
 
   return (
     <div className="space-y-6">
+      {/* 今週の負荷ビュー */}
+      <WeeklyLoad events={events} />
+
       <section>
         <div className="mb-2 flex items-center justify-between px-1">
           <h2 className="text-sm font-bold tracking-wide text-slate-500">
