@@ -6,10 +6,12 @@ export function EventTypeSelector({
   open,
   onClose,
   onSelect,
+  onTimetable,
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (mode: EventMode) => void;
+  onTimetable?: () => void;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -81,6 +83,27 @@ export function EventTypeSelector({
             </div>
             <span className="ml-auto text-rose-300">›</span>
           </button>
+
+          {/* 時間割（一括） */}
+          {onTimetable && (
+            <button
+              type="button"
+              onClick={onTimetable}
+              className="flex items-center gap-4 rounded-2xl border-2 border-violet-100 bg-violet-50 px-5 py-4 text-left transition active:scale-[0.98] hover:border-violet-300 hover:bg-violet-100"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500 text-2xl shadow-sm">
+                📚
+              </span>
+              <div>
+                <p className="font-bold text-violet-800">時間割をまとめて登録</p>
+                <p className="mt-0.5 text-sm text-violet-600">
+                  曜日×時限で学期分を一括
+                </p>
+                <p className="mt-0.5 text-xs text-violet-400">毎週の授業を自動生成</p>
+              </div>
+              <span className="ml-auto text-violet-300">›</span>
+            </button>
+          )}
         </div>
 
         {/* キャンセル */}

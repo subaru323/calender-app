@@ -10,6 +10,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { EventModal } from "./components/EventModal/EventModal";
 import { EventTypeSelector } from "./components/EventModal/EventTypeSelector";
 import type { EventMode } from "./components/EventModal/EventTypeSelector";
+import { TimetableModal } from "./components/Timetable/TimetableModal";
 import { cn, formatDateJa, todayKey } from "./lib/utils";
 
 type Tab = "home" | "calendar" | "deadline" | "settings";
@@ -30,13 +31,21 @@ const TAB_TITLE: Record<Tab, string> = {
 
 export default function App() {
   const { loading } = useAuth();
-  const { events, source, addEvent, updateEvent, deleteEvent, toggleDone } =
-    useEvents();
+  const {
+    events,
+    source,
+    addEvent,
+    addManyEvents,
+    updateEvent,
+    deleteEvent,
+    deleteManyEvents,
+    toggleDone,
+  } = useEvents();
   const { settings, updateSettings } = useSettings();
 
   const [tab, setTab] = useState<Tab>("home");
 
-  // ① セレクタ（予定 or 締切 を選ぶボトムシート）
+  // ① セレクタ（予定 / 締切 / 時間割 を選ぶボトムシート）
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [pendingDate, setPendingDate] = useState<string>(todayKey());
 
@@ -44,6 +53,9 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<EventMode | undefined>(undefined);
   const [editing, setEditing] = useState<EventItem | null>(null);
+
+  // ③ 時間割モーダル
+  const [timetableOpen, setTimetableOpen] = useState(false);
 
   /** FAB / カレンダーの「この日に追加」→ セレクタを開く */
   function openSelector(date?: string) {
@@ -66,9 +78,26 @@ export default function App() {
     setModalOpen(true);
   }
 
+  /** セレクタで時間割を選んだ */
+  function handleTimetableSelected() {
+    setSelectorOpen(false);
+    setTimetableOpen(true);
+  }
+
   function handleSave(draft: EventDraft, id?: string) {
     if (id) void updateEvent(id, draft);
     else void addEvent(draft);
+  }
+
+  /** 時間割の一括登録（replace=true なら既存の時間割イベントを削除してから追加） */
+  function handleTimetableSubmit(drafts: EventDraft[], replace: boolean) {
+    if (replace) {
+      const oldIds = events
+        .filter((e) => e.seriesId?.startsWith("tt-"))
+        .map((e) => e.id);
+      void deleteManyEvents(oldIds);
+    }
+    void addManyEvents(drafts);
   }
 
   if (loading) {
@@ -156,6 +185,14 @@ export default function App() {
         open={selectorOpen}
         onClose={() => setSelectorOpen(false)}
         onSelect={handleModeSelected}
+        onTimetable={handleTimetableSelected}
+      />
+
+      {/* ③ 時間割モーダル */}
+      <TimetableModal
+        open={timetableOpen}
+        onClose={() => setTimetableOpen(false)}
+        onSubmit={handleTimetableSubmit}
       />
 
       {/* ② フォームモーダル */}

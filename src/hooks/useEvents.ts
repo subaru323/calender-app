@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import type { EventDraft, EventItem } from "../types";
 import { db, firebaseEnabled } from "../lib/firebase";
@@ -20,8 +21,10 @@ export interface EventsStore {
   /** データの出どころ。UI のバッジ表示に使う。 */
   source: "firestore" | "memory";
   addEvent: (draft: EventDraft) => Promise<void>;
+  addManyEvents: (drafts: EventDraft[]) => Promise<void>;
   updateEvent: (id: string, patch: Partial<EventDraft>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  deleteManyEvents: (ids: string[]) => Promise<void>;
   toggleDone: (id: string) => Promise<void>;
 }
 
@@ -93,6 +96,49 @@ export function useEvents(): EventsStore {
     [useFirestore, user?.uid],
   );
 
+  // 時間割など、複数イベントを一括追加（Firestore は writeBatch でまとめてコミット）
+  const addManyEvents = useCallback(
+    async (drafts: EventDraft[]) => {
+      if (drafts.length === 0) return;
+      const baseTime = Date.now();
+      if (useFirestore) {
+        const batch = writeBatch(db!);
+        const col = collection(db!, "users", user!.uid, "events");
+        drafts.forEach((draft, i) => {
+          batch.set(doc(col), stripUndefined({ ...draft, createdAt: baseTime + i }));
+        });
+        await batch.commit();
+      } else {
+        setEvents((prev) => [
+          ...drafts.map((draft, i) => ({
+            ...draft,
+            id: crypto.randomUUID(),
+            createdAt: baseTime + i,
+          })),
+          ...prev,
+        ]);
+      }
+    },
+    [useFirestore, user?.uid],
+  );
+
+  const deleteManyEvents = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      if (useFirestore) {
+        const batch = writeBatch(db!);
+        ids.forEach((id) =>
+          batch.delete(doc(db!, "users", user!.uid, "events", id)),
+        );
+        await batch.commit();
+      } else {
+        const idSet = new Set(ids);
+        setEvents((prev) => prev.filter((e) => !idSet.has(e.id)));
+      }
+    },
+    [useFirestore, user?.uid],
+  );
+
   const toggleDone = useCallback(
     async (id: string) => {
       const target = events.find((e) => e.id === id);
@@ -106,8 +152,10 @@ export function useEvents(): EventsStore {
     events,
     source: useFirestore ? "firestore" : "memory",
     addEvent,
+    addManyEvents,
     updateEvent,
     deleteEvent,
+    deleteManyEvents,
     toggleDone,
   };
 }

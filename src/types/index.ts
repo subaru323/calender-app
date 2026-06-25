@@ -22,6 +22,7 @@ export interface EventItem {
   done: boolean; // 完了フラグ
   items?: string[]; // 持ち物リスト（AI/ルールが生成）
   memo?: string;
+  seriesId?: string; // 時間割などの一括生成シリーズ識別（"tt-..."）
   createdAt: number; // epoch ms
 }
 
